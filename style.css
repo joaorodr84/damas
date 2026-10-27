@@ -24,7 +24,10 @@ h1 { margin: 0; font: 600 2.2rem Georgia, serif; letter-spacing: .12em; text-tra
 #board-wrap { padding: clamp(8px, 2.5vw, 18px); background: var(--frame); border-radius: 14px;
   box-shadow: 0 20px 50px rgba(0,0,0,.45), inset 0 0 0 2px rgba(255,255,255,.08); }
 #board { position: relative; width: 100%; aspect-ratio: 1; border-radius: 4px; overflow: hidden;
-  box-shadow: 0 0 0 2px rgba(0,0,0,.35); user-select: none; }
+  box-shadow: 0 0 0 2px rgba(0,0,0,.35); user-select: none;
+  transition: transform .7s cubic-bezier(.45,.05,.25,1); }
+#board.flipped { transform: rotate(180deg); }
+#board.no-anim { transition: none; }
 .sq { position: absolute; width: calc(100% / var(--n)); height: calc(100% / var(--n)); }
 .sq.light { background: var(--light); }
 .sq.dark  { background: linear-gradient(145deg, var(--dark), color-mix(in srgb, var(--dark) 80%, black)); }
@@ -33,12 +36,17 @@ h1 { margin: 0; font: 600 2.2rem Georgia, serif; letter-spacing: .12em; text-tra
 .sq.from { box-shadow: inset 0 0 0 3px rgba(255, 214, 90, .8); }
 .sq i { position: absolute; font: 600 clamp(.5rem, 1.8vw, .75rem)/1 system-ui; font-style: normal; opacity: .7; pointer-events: none; }
 .sq.light i { color: var(--dark); } .sq.dark i { color: var(--light); }
-.sq .file { right: 5%; bottom: 4%; } .sq .rank { left: 5%; top: 4%; }
+.sq i { display: none; }
+#board:not(.flipped) .a, #board.flipped .b { display: block; }
+.sq .file.a { right: 5%; bottom: 4%; } .sq .rank.a { left: 5%; top: 4%; }
+.sq .file.b { left: 5%; top: 4%; } .sq .rank.b { right: 5%; bottom: 4%; }
+.flipped .sq i { rotate: 180deg; }
 
 .piece { position: absolute; left: 0; top: 0; cursor: pointer; transition: transform .28s cubic-bezier(.3,.7,.3,1); z-index: 2; }
 .no-anim .piece { transition: none; }
 .disc { position: absolute; inset: 9%; display: block; border-radius: 50%;
-  box-shadow: 0 4px 0 rgba(0,0,0,.35), 0 8px 14px rgba(0,0,0,.4); transition: transform .15s; }
+  box-shadow: 0 4px 0 rgba(0,0,0,.35), 0 8px 14px rgba(0,0,0,.4); transition: transform .15s, rotate .7s cubic-bezier(.45,.05,.25,1); }
+.no-anim .disc { transition: none; }
 .piece.white .disc { background: radial-gradient(circle at 35% 30%, var(--w1), var(--w2) 75%); }
 .piece.black .disc { background: radial-gradient(circle at 35% 30%, var(--b1), var(--b2) 75%); }
 .ring { position: absolute; inset: 14%; border-radius: 50%; box-shadow: inset 0 2px 3px rgba(0,0,0,.3), 0 1px 0 rgba(255,255,255,.25); }

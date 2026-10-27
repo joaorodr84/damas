@@ -11,12 +11,11 @@ function newGame() {
   build();
 }
 
-// Screen position of a board square, as percentages of the board.
+// Position of a board square, as percentages of the board. The board is
+// turned as a whole with CSS when `flipped`, so this never depends on it.
 function pos(r, c) {
   const n = game.size;
-  const col = flipped ? n - 1 - c : c;
-  const row = flipped ? r : n - 1 - r;
-  return { x: col * 100 / n, y: row * 100 / n };
+  return { x: c * 100 / n, y: (n - 1 - r) * 100 / n };
 }
 
 function build() {
@@ -24,6 +23,7 @@ function build() {
   document.body.dataset.theme = settings.theme;
   boardEl.style.setProperty('--n', n);
   boardEl.classList.toggle('no-anim', !settings.anim);
+  boardEl.classList.toggle('flipped', flipped);
   boardEl.innerHTML = '';
   pieceEls.clear();
 
@@ -34,10 +34,14 @@ function build() {
       sq.dataset.r = r; sq.dataset.c = c;
       const p = pos(r, c);
       sq.style.left = p.x + '%'; sq.style.top = p.y + '%';
+      // Labels sit on both opposite edges; CSS shows the pair on the visual
+      // bottom/left whichever way the board is turned.
       if (settings.coords) {
-        const col = flipped ? n - 1 - c : c, row = flipped ? r : n - 1 - r;
-        if (row === n - 1) sq.insertAdjacentHTML('beforeend', `<i class="file">${String.fromCharCode(97 + c)}</i>`);
-        if (col === 0) sq.insertAdjacentHTML('beforeend', `<i class="rank">${r + 1}</i>`);
+        const side = k => k === 0 ? 'a' : k === n - 1 ? 'b' : '';
+        const f = side(r), k = side(c);
+        const letter = String.fromCharCode(97 + c);
+        if (f) sq.insertAdjacentHTML('beforeend', `<i class="file ${f}">${letter}</i>`);
+        if (k) sq.insertAdjacentHTML('beforeend', `<i class="rank ${k}">${r + 1}</i>`);
       }
       boardEl.appendChild(sq);
     }
@@ -64,6 +68,7 @@ function candidates() {
 
 function render() {
   const n = game.size;
+  boardEl.classList.toggle('flipped', flipped);
   legal = free() ? [] : game.legalMoves();
   const cands = candidates();
   const nextSquares = free()
@@ -92,6 +97,7 @@ function render() {
       `${piece === selected ? ' selected' : ''}${taken.has(piece) ? ' taken' : ''}` +
       `${settings.hints && movable.has(piece) ? ' movable' : ''}`;
     el.style.width = el.style.height = 100 / n + '%';
+    el.firstChild.style.rotate = flipped ? '-180deg' : '0deg';
     el.style.transform = `translate(${p.x / (100 / n) * 100}%, ${p.y / (100 / n) * 100}%)`;
   }
   const name = c => c === 'white' ? 'Brancas' : 'Pretas';
