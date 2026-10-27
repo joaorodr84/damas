@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Damas</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1>Damas</h1>
+    <p id="turn"></p>
+  </header>
+
+  <div id="board-wrap">
+    <div id="board" role="grid" aria-label="Tabuleiro de damas"></div>
+  </div>
+
+  <div class="toolbar">
+    <button id="undo">Desfazer</button>
+    <button id="reset">Novo jogo</button>
+    <button id="toggle-settings">Definições</button>
+  </div>
+
+  <aside id="settings" hidden>
+    <h2>Definições</h2>
+    <label>Tema
+      <select id="s-theme">
+        <option value="walnut">Nogueira</option>
+        <option value="marble">Mármore</option>
+        <option value="midnight">Meia-noite</option>
+        <option value="classic">Clássico</option>
+      </select>
+    </label>
+    <label>Tamanho do tabuleiro
+      <select id="s-size">
+        <option value="8">8 × 8 (português)</option>
+        <option value="10">10 × 10</option>
+      </select>
+    </label>
+    <label>Quem começa
+      <select id="s-first">
+        <option value="white">Brancas</option>
+        <option value="black">Pretas</option>
+      </select>
+    </label>
+    <label class="check"><input type="checkbox" id="s-coords"> Mostrar coordenadas</label>
+    <label class="check"><input type="checkbox" id="s-flip"> Rodar tabuleiro a cada jogada</label>
+    <label class="check"><input type="checkbox" id="s-hints"> Destacar casas livres</label>
+    <label class="check"><input type="checkbox" id="s-anim"> Animações</label>
+    <p class="note">Por agora o tabuleiro é livre: move qualquer peça para uma casa escura vazia. Duplo clique numa peça promove/despromove a dama; clique direito remove-a. As regras portuguesas vêm a seguir.</p>
+  </aside>
+</main>
+<script src="js/config.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
