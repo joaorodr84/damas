@@ -2,6 +2,9 @@
 // can be plugged in later without touching the UI.
 const DEFAULT_SETTINGS = {
   theme: 'walnut',
+  mode: 'portuguese',
+  mandatory: true,
+  majority: true,
   size: 8,
   first: 'white',
   coords: true,

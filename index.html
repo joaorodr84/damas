@@ -33,6 +33,14 @@
         <option value="classic">Clássico</option>
       </select>
     </label>
+    <label>Modo
+      <select id="s-mode">
+        <option value="portuguese">Regras portuguesas</option>
+        <option value="free">Jogo livre</option>
+      </select>
+    </label>
+    <label class="check"><input type="checkbox" id="s-mandatory"> Captura obrigatória</label>
+    <label class="check"><input type="checkbox" id="s-majority"> Lei da maioria (tomar o maior número de peças)</label>
     <label>Tamanho do tabuleiro
       <select id="s-size">
         <option value="8">8 × 8 (português)</option>
@@ -49,7 +57,7 @@
     <label class="check"><input type="checkbox" id="s-flip"> Rodar tabuleiro a cada jogada</label>
     <label class="check"><input type="checkbox" id="s-hints"> Destacar casas livres</label>
     <label class="check"><input type="checkbox" id="s-anim"> Animações</label>
-    <p class="note">Por agora o tabuleiro é livre: move qualquer peça para uma casa escura vazia. Duplo clique numa peça promove/despromove a dama; clique direito remove-a. As regras portuguesas vêm a seguir.</p>
+    <p class="note">Jogo livre: move qualquer peça para uma casa escura vazia; duplo clique promove/despromove a dama; clique direito remove a peça.</p>
   </aside>
 </main>
 <script src="js/config.js"></script>

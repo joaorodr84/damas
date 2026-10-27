@@ -61,3 +61,7 @@ select { padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,2
 #settings label { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 #settings .check { justify-content: flex-start; cursor: pointer; }
 .note { margin: 0; font-size: .85rem; color: var(--muted); }
+
+.piece.taken { opacity: .35; }
+.piece.movable:not(.selected) .disc { animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 3px rgba(255,214,90,.55), 0 8px 14px rgba(0,0,0,.4); } }

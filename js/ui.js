@@ -1,12 +1,12 @@
 const $ = id => document.getElementById(id);
 const boardEl = $('board');
 let settings = Settings.load();
-let game, selected = null, flipped = false;
+let game, selected = null, path = [], flipped = false, legal = [];
 const pieceEls = new Map();
 
 function newGame() {
-  game = new Game(settings.size, settings.first);
-  selected = null;
+  game = new Game(settings.size, settings.first, settings);
+  selected = null; path = [];
   flipped = false;
   build();
 }
@@ -52,11 +52,33 @@ function build() {
   render();
 }
 
+const free = () => settings.mode === 'free';
+const same = (a, b) => a[0] === b[0] && a[1] === b[1];
+
+// Moves of the selected piece that agree with the squares clicked so far.
+function candidates() {
+  if (!selected) return [];
+  return legal.filter(m => m.piece === selected &&
+    path.every((sq, i) => m.steps[i] && same(m.steps[i].to, sq)));
+}
+
 function render() {
   const n = game.size;
+  legal = free() ? [] : game.legalMoves();
+  const cands = candidates();
+  const nextSquares = free()
+    ? null
+    : cands.filter(m => m.steps[path.length]).map(m => m.steps[path.length].to);
+  const taken = new Set(cands[0] ? cands[0].steps.slice(0, path.length).map(s => s.captured) : []);
+  const winner = game.winner();
+  const movable = new Set(!selected && !winner ? legal.map(m => m.piece) : []);
+
   boardEl.querySelectorAll('.sq').forEach(sq => {
     const r = +sq.dataset.r, c = +sq.dataset.c;
-    sq.classList.toggle('hint', settings.hints && !!selected && Game.isDark(r, c) && !game.pieceAt(r, c));
+    const hint = !!selected && settings.hints && (free()
+      ? Game.isDark(r, c) && !game.pieceAt(r, c)
+      : nextSquares.some(t => t[0] === r && t[1] === c));
+    sq.classList.toggle('hint', hint);
     sq.classList.toggle('from', !!selected && selected.r === r && selected.c === c);
     const p = pos(r, c);
     sq.style.left = p.x + '%'; sq.style.top = p.y + '%';
@@ -64,33 +86,58 @@ function render() {
   for (const [id, el] of pieceEls) {
     const piece = game.pieces.find(p => p.id === id);
     if (!piece) { el.remove(); pieceEls.delete(id); continue; }
-    const p = pos(piece.r, piece.c);
-    el.className = `piece ${piece.color}${piece.king ? ' king' : ''}${piece === selected ? ' selected' : ''}`;
+    const at = piece === selected && path.length ? path[path.length - 1] : [piece.r, piece.c];
+    const p = pos(at[0], at[1]);
+    el.className = `piece ${piece.color}${piece.king ? ' king' : ''}` +
+      `${piece === selected ? ' selected' : ''}${taken.has(piece) ? ' taken' : ''}` +
+      `${settings.hints && movable.has(piece) ? ' movable' : ''}`;
     el.style.width = el.style.height = 100 / n + '%';
     el.style.transform = `translate(${p.x / (100 / n) * 100}%, ${p.y / (100 / n) * 100}%)`;
   }
-  $('turn').innerHTML =
-    `<span class="dot ${game.turn}"></span> Joga ${game.turn === 'white' ? 'Brancas' : 'Pretas'}` +
-    ` · <span class="muted">${game.count('white')} – ${game.count('black')}</span>`;
+  const name = c => c === 'white' ? 'Brancas' : 'Pretas';
+  const mustTake = !free() && legal.length && legal[0].steps[0].captured;
+  $('turn').innerHTML = winner
+    ? `<span class="dot ${winner}"></span> <strong>${name(winner)} ganham!</strong>`
+    : `<span class="dot ${game.turn}"></span> Joga ${name(game.turn)}` +
+      (mustTake ? ' · <span class="muted">captura</span>' : '') +
+      ` · <span class="muted">${game.count('white')} – ${game.count('black')}</span>`;
+}
+
+function deselect() { selected = null; path = []; }
+
+function afterMove() {
+  deselect();
+  if (settings.flip) flipped = !flipped;
+  render();
 }
 
 boardEl.addEventListener('click', e => {
   const pe = e.target.closest('.piece');
   if (pe) {
     const piece = game.pieces.find(p => p.id === +pe.dataset.id);
-    if (piece.color === game.turn) { selected = selected === piece ? null : piece; render(); }
+    if (piece === selected) { deselect(); render(); return; }
+    if (piece.color !== game.turn || path.length) return;
+    if (free() || legal.some(m => m.piece === piece)) { selected = piece; render(); }
     return;
   }
   const sq = e.target.closest('.sq');
   if (!sq || !selected) return;
-  if (game.move(selected, +sq.dataset.r, +sq.dataset.c)) {
-    selected = null;
-    if (settings.flip) flipped = !flipped;
-    render();
+  const r = +sq.dataset.r, c = +sq.dataset.c;
+  if (free()) {
+    if (game.move(selected, r, c)) afterMove();
+    return;
   }
+  const next = candidates().filter(m => m.steps[path.length] && same(m.steps[path.length].to, [r, c]));
+  if (!next.length) return;
+  path.push([r, c]);
+  const done = next.find(m => m.steps.length === path.length);
+  if (done) { game.play(done); afterMove(); } else render();
 });
 
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { deselect(); render(); } });
+
 boardEl.addEventListener('dblclick', e => {
+  if (!free()) return;
   const pe = e.target.closest('.piece');
   if (!pe) return;
   game.toggleKing(game.pieces.find(p => p.id === +pe.dataset.id));
@@ -98,21 +145,22 @@ boardEl.addEventListener('dblclick', e => {
 });
 
 boardEl.addEventListener('contextmenu', e => {
+  if (!free()) { e.preventDefault(); deselect(); render(); return; }
   const pe = e.target.closest('.piece');
   if (!pe) return;
   e.preventDefault();
   const piece = game.pieces.find(p => p.id === +pe.dataset.id);
-  if (piece === selected) selected = null;
+  if (piece === selected) deselect();
   game.remove(piece);
   render();
 });
 
-$('undo').onclick = () => { if (game.undo()) { selected = null; if (settings.flip) flipped = !flipped; build(); } };
+$('undo').onclick = () => { if (game.undo()) { deselect(); if (settings.flip) flipped = !flipped; build(); } };
 $('reset').onclick = newGame;
 $('toggle-settings').onclick = () => { $('settings').hidden = !$('settings').hidden; };
 
 // Settings wiring
-const fields = { theme: 's-theme', size: 's-size', first: 's-first', coords: 's-coords', flip: 's-flip', hints: 's-hints', anim: 's-anim' };
+const fields = { mode: 's-mode', mandatory: 's-mandatory', majority: 's-majority', theme: 's-theme', size: 's-size', first: 's-first', coords: 's-coords', flip: 's-flip', hints: 's-hints', anim: 's-anim' };
 for (const [key, id] of Object.entries(fields)) {
   const el = $(id);
   const isCheck = el.type === 'checkbox';
