@@ -9,3 +9,12 @@ Still to do: draw rules.
 - `js/config.js` – settings (saved in localStorage)
 - `js/game.js` – game state (no DOM)
 - `js/ui.js` – rendering and input
+
+## Online play
+
+Two people can play over the internet, no account needed: press **Online → Criar jogo**, send the 6-character code (or the link) to your friend, and they press **Entrar**. The host plays white first; colours swap on every **Novo jogo**, and the score is kept for the session. If the connection drops, the guest reconnects automatically and the game resumes.
+
+It is peer-to-peer (WebRTC via [PeerJS](https://peerjs.com), vendored in `js/vendor/`). The public PeerJS broker is only used to introduce the two browsers; moves go directly between them. On some strict networks a direct connection may not be possible.
+
+- `js/net.js` – connection handling (host / guest, reconnection)
+- `js/ui.js` – the message protocol (`state`, `move`, `rematch`, `resync`) and online UI

@@ -20,8 +20,33 @@
   <div class="toolbar">
     <button id="undo">Desfazer</button>
     <button id="reset">Novo jogo</button>
+    <button id="toggle-online">Online</button>
     <button id="toggle-settings">Definições</button>
   </div>
+
+  <aside id="online" data-state="idle" hidden>
+    <h2>Jogar online</h2>
+    <div class="net-idle">
+      <button id="net-create" class="primary">Criar jogo</button>
+      <span class="or">ou</span>
+      <form id="net-join-form">
+        <input id="net-code" placeholder="Código" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Código do jogo">
+        <button type="submit">Entrar</button>
+      </form>
+    </div>
+    <div class="net-wait">
+      <p>Partilha este código com o teu amigo:</p>
+      <div class="code-row"><strong id="net-code-show">······</strong>
+        <button id="net-copy-code">Copiar código</button>
+        <button id="net-copy-link">Copiar ligação</button></div>
+      <p class="muted">À espera que o teu amigo entre…</p>
+    </div>
+    <div class="net-live">
+      <p id="net-score"></p>
+    </div>
+    <p id="net-status" class="muted" role="status"></p>
+    <button id="net-leave" class="net-wait net-live">Sair do jogo online</button>
+  </aside>
 
   <aside id="settings" hidden>
     <h2>Definições</h2>
@@ -61,7 +86,9 @@
     <p class="note">Jogo livre: move qualquer peça para uma casa escura vazia; duplo clique promove/despromove a dama; clique direito remove a peça.</p>
   </aside>
 </main>
+<script src="js/vendor/peerjs.min.js"></script>
 <script src="js/config.js"></script>
+<script src="js/net.js"></script>
 <script src="js/game.js"></script>
 <script src="js/ui.js"></script>
 </body>

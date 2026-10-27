@@ -63,9 +63,9 @@ button { padding: 9px 18px; border: 1px solid rgba(255,255,255,.18); border-radi
 button:hover { background: rgba(255,255,255,.14); } button:active { transform: scale(.97); }
 select { padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,.2); background: var(--frame); }
 
-#settings { background: var(--panel); border: 1px solid rgba(255,255,255,.12); border-radius: 14px; padding: 16px 18px; display: grid; gap: 12px; backdrop-filter: blur(6px); }
-#settings[hidden] { display: none; }
-#settings h2 { margin: 0; font-size: 1.1rem; }
+#settings, #online { background: var(--panel); border: 1px solid rgba(255,255,255,.12); border-radius: 14px; padding: 16px 18px; display: grid; gap: 12px; backdrop-filter: blur(6px); }
+#settings[hidden], #online[hidden] { display: none; }
+#settings h2, #online h2 { margin: 0; font-size: 1.1rem; }
 #settings label { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 #settings .check { justify-content: flex-start; cursor: pointer; }
 .note { margin: 0; font-size: .85rem; color: var(--muted); }
@@ -73,3 +73,22 @@ select { padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,2
 .piece.taken { opacity: .35; }
 .piece.movable:not(.selected) .disc { animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 3px rgba(255,214,90,.55), 0 8px 14px rgba(0,0,0,.4); } }
+
+#online input { font: inherit; color: var(--ink); width: 8.5em; padding: 8px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.25);
+  background: rgba(0,0,0,.2); text-transform: uppercase; letter-spacing: .2em; text-align: center; }
+#online input::placeholder { letter-spacing: normal; text-transform: none; }
+#online p { margin: 0; }
+#online .net-idle { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+#net-join-form { display: flex; gap: 8px; }
+.or { color: var(--muted); }
+button.primary { background: rgba(255,214,90,.22); border-color: rgba(255,214,90,.5); }
+.code-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 8px 0; }
+#net-code-show { font: 700 1.8rem ui-monospace, Menlo, monospace; letter-spacing: .25em; }
+#online .net-idle, #online .net-wait, #online .net-live { display: none; }
+#online[data-state="idle"] .net-idle { display: flex; }
+#online[data-state="waiting"] .net-wait { display: block; }
+#online[data-state="live"] .net-live { display: block; }
+#online[data-state="waiting"] #net-leave, #online[data-state="live"] #net-leave { display: inline-block; justify-self: start; }
+#net-status:empty { display: none; }
+#net-score { font-size: 1.05rem; }
+button:disabled { opacity: .4; cursor: default; }

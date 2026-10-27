@@ -2,6 +2,7 @@ const $ = id => document.getElementById(id);
 const boardEl = $('board');
 let settings = Settings.load();
 let game, selected = null, path = [], flipped = false, legal = [];
+let net = null; // online session, see the Online section below
 const pieceEls = new Map();
 
 function newGame() {
@@ -56,7 +57,8 @@ function build() {
   render();
 }
 
-const free = () => settings.mode === 'free';
+const free = () => !net && settings.mode === 'free';
+const myTurn = () => !net || (net.ready && game.turn === net.me);
 const same = (a, b) => a[0] === b[0] && a[1] === b[1];
 
 // Moves of the selected piece that agree with the squares clicked so far.
@@ -76,7 +78,7 @@ function render() {
     : cands.filter(m => m.steps[path.length]).map(m => m.steps[path.length].to);
   const taken = new Set(cands[0] ? cands[0].steps.slice(0, path.length).map(s => s.captured) : []);
   const winner = game.winner();
-  const movable = new Set(!selected && !winner ? legal.map(m => m.piece) : []);
+  const movable = new Set(!selected && !winner && myTurn() ? legal.map(m => m.piece) : []);
 
   boardEl.querySelectorAll('.sq').forEach(sq => {
     const r = +sq.dataset.r, c = +sq.dataset.c;
@@ -102,18 +104,31 @@ function render() {
   }
   const name = c => c === 'white' ? 'Brancas' : 'Pretas';
   const mustTake = !free() && legal.length && legal[0].steps[0].captured;
-  $('turn').innerHTML = winner
-    ? `<span class="dot ${winner}"></span> <strong>${name(winner)} ganham!</strong>`
-    : `<span class="dot ${game.turn}"></span> Joga ${name(game.turn)}` +
-      (mustTake ? ' · <span class="muted">captura</span>' : '') +
-      ` · <span class="muted">${game.count('white')} – ${game.count('black')}</span>`;
+  const counts = `<span class="muted">${game.count('white')} – ${game.count('black')}</span>`;
+  let text;
+  if (winner) {
+    text = net
+      ? `<span class="dot ${winner}"></span> <strong>${winner === net.me ? 'Ganhaste!' : 'Perdeste.'}</strong>`
+      : `<span class="dot ${winner}"></span> <strong>${name(winner)} ganham!</strong>`;
+  } else if (net) {
+    text = !net.ready
+      ? `<span class="dot ${game.turn}"></span> <span class="muted">Adversário desligado</span>`
+      : `<span class="dot ${game.turn}"></span> ${game.turn === net.me ? '<strong>A tua vez</strong>' : 'Vez do adversário'}` +
+        (mustTake && game.turn === net.me ? ' · <span class="muted">captura</span>' : '') + ` · ${counts}`;
+  } else {
+    text = `<span class="dot ${game.turn}"></span> Joga ${name(game.turn)}` +
+      (mustTake ? ' · <span class="muted">captura</span>' : '') + ` · ${counts}`;
+  }
+  $('turn').innerHTML = text;
+  renderOnline();
 }
 
 function deselect() { selected = null; path = []; }
 
 function afterMove() {
   deselect();
-  if (settings.flip) flipped = !flipped;
+  if (settings.flip && !net) flipped = !flipped;
+  if (net) checkEnd();
   render();
 }
 
@@ -122,12 +137,12 @@ boardEl.addEventListener('click', e => {
   if (pe) {
     const piece = game.pieces.find(p => p.id === +pe.dataset.id);
     if (piece === selected) { deselect(); render(); return; }
-    if (piece.color !== game.turn || path.length) return;
+    if (piece.color !== game.turn || path.length || !myTurn()) return;
     if (free() || legal.some(m => m.piece === piece)) { selected = piece; render(); }
     return;
   }
   const sq = e.target.closest('.sq');
-  if (!sq || !selected) return;
+  if (!sq || !selected || !myTurn()) return;
   const r = +sq.dataset.r, c = +sq.dataset.c;
   if (free()) {
     if (game.move(selected, r, c)) afterMove();
@@ -137,7 +152,12 @@ boardEl.addEventListener('click', e => {
   if (!next.length) return;
   path.push([r, c]);
   const done = next.find(m => m.steps.length === path.length);
-  if (done) { game.play(done); afterMove(); } else render();
+  if (done) {
+    const from = [done.piece.r, done.piece.c];
+    game.play(done);
+    if (net) net.link.send({ type: 'move', from, path: done.steps.map(st => st.to) });
+    afterMove();
+  } else render();
 });
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { deselect(); render(); } });
@@ -161,8 +181,13 @@ boardEl.addEventListener('contextmenu', e => {
   render();
 });
 
-$('undo').onclick = () => { if (game.undo()) { deselect(); if (settings.flip) flipped = !flipped; build(); } };
-$('reset').onclick = newGame;
+$('undo').onclick = () => { if (!net && game.undo()) { deselect(); if (settings.flip) flipped = !flipped; build(); } };
+$('reset').onclick = () => {
+  if (!net) return newGame();
+  if (!game.winner() && !confirm('Terminar a partida atual e começar outra?')) return;
+  net.role === 'host' ? startOnlineGame() : net.link.send({ type: 'rematch' });
+};
+$('toggle-online').onclick = () => { $('online').hidden = !$('online').hidden; };
 $('toggle-settings').onclick = () => { $('settings').hidden = !$('settings').hidden; };
 
 // Settings wiring
@@ -174,8 +199,150 @@ for (const [key, id] of Object.entries(fields)) {
   el.onchange = () => {
     settings[key] = isCheck ? el.checked : (key === 'size' ? +el.value : el.value);
     Settings.save(settings);
-    if (key === 'size' || key === 'first') newGame(); else build();
+    if (key === 'size' || key === 'first') { if (!net) newGame(); } else build();
   };
 }
 
+// ---- Online play -----------------------------------------------------------
+// Protocol (JSON):
+//   host -> guest  { type: 'state', size, rules, pieces, turn, hostColor, score, over }
+//                  sent at the start of every game and after every (re)connection
+//   either         { type: 'move', from: [r, c], path: [[r, c], ...] }
+//   guest -> host  { type: 'rematch' }   ask the host to start a new game
+//   guest -> host  { type: 'resync' }    ask for the state again (after a mismatch)
+// The host owns the colours: it plays white first and they swap every game.
+// Each side validates incoming moves with the same rules engine.
+
+function startOnline(role, code) {
+  leaveOnline(false);
+  net = { role, me: null, ready: false, started: false, hostColor: 'white',
+          score: { host: 0, guest: 0 }, counted: false, rules: null, link: null, code };
+  net.link = new Online({
+    onCode: c => { net.code = c; setOnlineState('waiting'); $('net-code-show').textContent = c; setNetStatus(''); },
+    onConnect: () => {
+      net.ready = true;
+      setOnlineState('live');
+      setNetStatus(role === 'host' ? '' : 'Ligado. À espera do anfitrião…');
+      if (role === 'host') net.started ? sendState() : startOnlineGame(false);
+      else render();
+    },
+    onDisconnect: () => {
+      net.ready = false;
+      setNetStatus(role === 'host' ? 'O teu amigo desligou-se. À espera que volte…' : 'Ligação perdida.');
+      deselect();
+      render();
+    },
+    onStatus: setNetStatus,
+    onFatal: msg => { leaveOnline(true); setNetStatus(msg); $('online').hidden = false; },
+    onMessage: onNetMessage,
+  });
+  setNetStatus(role === 'host' ? 'A criar jogo…' : 'A ligar…');
+  role === 'host' ? net.link.host() : net.link.join(code);
+}
+
+function leaveOnline(reset) {
+  if (!net) return;
+  net.link.close();
+  net = null;
+  setOnlineState('idle');
+  setNetStatus('');
+  if (reset) { flipped = false; newGame(); }
+}
+
+function setOnlineState(state) { $('online').dataset.state = state; }
+function setNetStatus(text) { $('net-status').textContent = text; }
+
+function renderOnline() {
+  $('undo').disabled = !!net;
+  if (!net || !net.started) return;
+  const mine = net.role === 'host' ? net.score.host : net.score.guest;
+  const theirs = net.role === 'host' ? net.score.guest : net.score.host;
+  $('net-score').innerHTML =
+    `Tu <span class="dot ${net.me}"></span> <strong>${mine} – ${theirs}</strong> Adversário`;
+}
+
+// Host: start a fresh game (colours swap after the first one).
+function startOnlineGame(swap = net.started) {
+  if (swap) net.hostColor = net.hostColor === 'white' ? 'black' : 'white';
+  const rules = { mode: 'portuguese', mandatory: settings.mandatory, majority: settings.majority, menBackward: settings.menBackward };
+  const g = new Game(settings.size, settings.first, rules);
+  applyState({ size: g.size, rules, pieces: g.pieces, turn: g.turn, hostColor: net.hostColor, score: net.score, over: false });
+  sendState();
+}
+
+function sendState() {
+  net.link.send({ type: 'state', size: game.size, rules: net.rules, hostColor: net.hostColor,
+    pieces: game.pieces.map(p => ({ ...p })), turn: game.turn, score: net.score, over: !!game.winner() });
+}
+
+function applyState(msg) {
+  net.rules = msg.rules;
+  net.hostColor = msg.hostColor;
+  net.me = net.role === 'host' ? msg.hostColor : (msg.hostColor === 'white' ? 'black' : 'white');
+  net.score = msg.score;
+  net.counted = msg.over;
+  net.started = true;
+  game = new Game(msg.size, msg.turn, msg.rules);
+  game.pieces = msg.pieces.map(p => ({ ...p }));
+  game.turn = msg.turn;
+  deselect();
+  flipped = net.me === 'black';
+  setNetStatus('');
+  // Start already facing the right way instead of spinning into place.
+  boardEl.style.transition = 'none';
+  build();
+  void boardEl.offsetWidth;
+  boardEl.style.transition = '';
+}
+
+function checkEnd() {
+  const w = game.winner();
+  if (!w || net.counted) return;
+  net.counted = true;
+  net.score[w === net.hostColor ? 'host' : 'guest']++;
+}
+
+function onNetMessage(msg) {
+  if (!msg || !net) return;
+  if (msg.type === 'state' && net.role === 'guest') applyState(msg);
+  else if (msg.type === 'rematch' && net.role === 'host') startOnlineGame();
+  else if (msg.type === 'resync' && net.role === 'host') sendState();
+  else if (msg.type === 'move') onRemoteMove(msg);
+}
+
+function onRemoteMove(msg) {
+  const ok = net.started && game.turn !== net.me && !game.winner() &&
+    Array.isArray(msg.from) && Array.isArray(msg.path);
+  const move = ok && game.legalMoves().find(m =>
+    m.piece.r === msg.from[0] && m.piece.c === msg.from[1] &&
+    m.steps.length === msg.path.length && m.steps.every((st, i) => same(st.to, msg.path[i])));
+  if (!move) {
+    // Out of step: the host's copy is the truth.
+    net.role === 'host' ? sendState() : net.link.send({ type: 'resync' });
+    return;
+  }
+  game.play(move);
+  afterMove();
+}
+
+$('net-create').onclick = () => startOnline('host');
+$('net-join-form').onsubmit = e => {
+  e.preventDefault();
+  const code = normaliseCode($('net-code').value);
+  if (code.length < 4) { setNetStatus('Escreve o código que o teu amigo te enviou.'); return; }
+  startOnline('guest', code);
+};
+$('net-leave').onclick = () => leaveOnline(true);
+const copy = (text, label) => {
+  (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject())
+    .then(() => setNetStatus(label + ' copiado.'), () => setNetStatus('Copia manualmente: ' + text));
+};
+$('net-copy-code').onclick = () => copy(net.code, 'Código');
+$('net-copy-link').onclick = () => copy(`${location.origin}${location.pathname}?join=${net.code}`, 'Ligação');
+window.addEventListener('beforeunload', () => net && net.link.close());
+
 newGame();
+
+// A shared link (?join=CODE) joins straight away.
+const joinParam = normaliseCode(new URLSearchParams(location.search).get('join') || '');
+if (joinParam) { $('online').hidden = false; startOnline('guest', joinParam); }
