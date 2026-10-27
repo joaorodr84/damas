@@ -160,7 +160,7 @@ $('reset').onclick = newGame;
 $('toggle-settings').onclick = () => { $('settings').hidden = !$('settings').hidden; };
 
 // Settings wiring
-const fields = { mode: 's-mode', mandatory: 's-mandatory', majority: 's-majority', theme: 's-theme', size: 's-size', first: 's-first', coords: 's-coords', flip: 's-flip', hints: 's-hints', anim: 's-anim' };
+const fields = { mode: 's-mode', mandatory: 's-mandatory', majority: 's-majority', menBackward: 's-menBackward', theme: 's-theme', size: 's-size', first: 's-first', coords: 's-coords', flip: 's-flip', hints: 's-hints', anim: 's-anim' };
 for (const [key, id] of Object.entries(fields)) {
   const el = $(id);
   const isCheck = el.type === 'checkbox';

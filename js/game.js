@@ -10,8 +10,8 @@ let nextId = 1;
 const DIRS = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
 
 class Game {
-  // `rules` is read live: { mode: 'portuguese' | 'free', mandatory, majority }
-  constructor(size = 8, first = 'white', rules = { mode: 'portuguese', mandatory: true, majority: true }) {
+  // `rules` is read live: { mode: 'portuguese' | 'free', mandatory, majority, menBackward }
+  constructor(size = 8, first = 'white', rules = { mode: 'portuguese', mandatory: true, majority: true, menBackward: false }) {
     this.size = size;
     this.turn = first;
     this.rules = rules;
@@ -47,7 +47,8 @@ class Game {
       let extended = false;
       for (const [dr, dc] of DIRS) {
         if (!piece.king) {
-          // Men capture forwards and backwards.
+          // Men capture forwards only, unless rules.menBackward is on.
+          if (!this.rules.menBackward && dr !== (piece.color === 'white' ? 1 : -1)) continue;
           const v = this.occ(r + dr, c + dc, piece);
           const lr = r + 2 * dr, lc = c + 2 * dc;
           if (v && v.color !== piece.color && !taken.includes(v) &&

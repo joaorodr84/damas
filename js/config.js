@@ -5,6 +5,7 @@ const DEFAULT_SETTINGS = {
   mode: 'portuguese',
   mandatory: true,
   majority: true,
+  menBackward: false,
   size: 8,
   first: 'white',
   coords: true,
